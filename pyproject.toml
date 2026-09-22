@@ -30,8 +30,21 @@ dependencies = []
 Repository = "https://github.com/Talhaahmad9/fastapi-infra"
 Issues = "https://github.com/Talhaahmad9/fastapi-infra/issues"
 
+[project.optional-dependencies]
+postgres = [
+    "psycopg[binary]>=3.3.6,<4",
+    "sqlalchemy[asyncio]>=2.0.54,<3",
+]
+
 [dependency-groups]
-dev = ["pyright>=1.1.390", "pytest>=8.3", "ruff>=0.9"]
+dev = [
+    "fastapi<1",
+    "httpx2>=2.13,<3",
+    "pyright>=1.1.390",
+    "pytest>=8.4,<10",
+    "pytest-asyncio>=1.4,<2",
+    "ruff>=0.9",
+]
 
 [tool.uv]
 default-groups = ["dev"]
@@ -55,4 +68,10 @@ include = ["src", "tests"]
 testpaths = ["tests"]
 addopts = "-ra --strict-config --strict-markers --tb=short"
 xfail_strict = true
-markers = ["unit: focused unit and package smoke tests"]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "unit: focused unit and package smoke tests",
+  "integration: disposable local postgresql integration tests",
+  "hosted: non-destructive hosted supabase smoke tests (opt-in)",
+]
