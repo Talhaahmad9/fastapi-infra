@@ -25,9 +25,9 @@ jobs:
       - name: Set up Python
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --locked --python ${{ matrix.python-version }}
+        run: uv sync --locked --extra postgres --python ${{ matrix.python-version }}
       - name: Test
-        run: uv run --python ${{ matrix.python-version }} pytest
+        run: uv run --python ${{ matrix.python-version }} pytest -m unit
 
   quality:
     name: Quality and build
@@ -43,12 +43,55 @@ jobs:
       - name: Set up Python
         run: uv python install 3.14
       - name: Install dependencies
-        run: uv sync --locked
+        run: uv sync --locked --extra postgres
       - name: Ruff lint
         run: uv run ruff check .
       - name: Ruff format check
         run: uv run ruff format --check .
       - name: Pyright strict check
         run: uv run pyright
+      - name: Pyright type-completeness check
+        run: uv run pyright --verifytypes fastapi_infra --ignoreexternal
       - name: Build
         run: uv build
+
+  postgres-integration:
+    name: PostgreSQL ${{ matrix.postgres-version }} Integration (Python 3.14)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - postgres-version: "17"
+            image: "postgres:17.11-bookworm"
+          - postgres-version: "18"
+            image: "postgres:18.6-bookworm"
+    services:
+      postgres:
+        image: ${{ matrix.image }}
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U testuser -d testdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.13"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Set up Python
+        run: uv python install 3.14
+      - name: Install dependencies
+        run: uv sync --locked --extra postgres
+      - name: Integration tests
+        env:
+          FASTAPI_INFRA_TEST_POSTGRES_DSN: postgresql+psycopg://testuser:testpassword@localhost:5432/testdb
+        run: uv run pytest -m integration
